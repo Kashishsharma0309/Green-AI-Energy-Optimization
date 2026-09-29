@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NEXUS | Green AI Energy Intelligence & Smart Simulator</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <!-- Chart.js for High Performance Visualizations -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+<div class="app-container">
+  <!-- SIDEBAR NAVIGATION -->
+  <aside class="sidebar">
+    <div class="brand-wrapper">
+      <div class="brand-icon">◈</div>
+      <div>
+        <div class="brand-title">NEXUS <span>AI</span></div>
+        <div class="brand-subtitle">Smart Energy Engine</div>
+      </div>
+    </div>
+
+    <nav class="nav-menu">
+      <div class="nav-section-title">Interactive Experience</div>
+      <a href="#" class="nav-item active" data-view="simulatorView">
+        <span class="nav-icon">🏡</span>
+        <span>Smart Home Sim</span>
+        <span class="nav-badge">LIVE</span>
+      </a>
+
+      <div class="nav-section-title">Core Intelligence</div>
+      <a href="#" class="nav-item" data-view="commandView">
+        <span class="nav-icon">📊</span>
+        <span>Command Center</span>
+      </a>
+      <a href="#" class="nav-item" data-view="forecastView">
+        <span class="nav-icon">🧠</span>
+        <span>AI Forecasting</span>
+      </a>
+      <a href="#" class="nav-item" data-view="anomalyView">
+        <span class="nav-icon">🚨</span>
+        <span>Anomaly Matrix</span>
+      </a>
+      <a href="#" class="nav-item" data-view="recommendView">
+        <span class="nav-icon">💡</span>
+        <span>Recommendations</span>
+      </a>
+
+      <div class="nav-section-title">Analytics & Studio</div>
+      <a href="#" class="nav-item" data-view="buildingView">
+        <span class="nav-icon">🏢</span>
+        <span>Building Analytics</span>
+      </a>
+      <a href="#" class="nav-item" data-view="uploadView">
+        <span class="nav-icon">📁</span>
+        <span>Data Studio & CSV</span>
+      </a>
+      <a href="#" class="nav-item" data-view="reportsView">
+        <span class="nav-icon">📄</span>
+        <span>Monthly Reports</span>
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="live-indicator">
+        <div class="pulse-dot"></div>
+        <span>AI Engine Active</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN WRAPPER -->
+  <div class="main-wrapper">
+    <!-- TOP BAR -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <div class="page-heading">NEXUS Smart Energy Optimization & Simulation Platform</div>
+      </div>
+      <div class="topbar-right">
+        <div class="quick-pill">Grid Tariff: <b id="topTariffRate">₹7.50/kWh</b></div>
+        <div class="quick-pill">Total Database Records: <b id="topRecordCount">103,680</b></div>
+      </div>
+    </header>
+
+    <!-- CONTENT BODY -->
+    <main class="content-body">
+      
+      <!-- ==========================================================
+           VIEW 1: SMART ESTATE & LOCALITY SIMULATOR (GAME-LIKE UI)
+      ========================================================== -->
+      <section id="simulatorView" class="view-section active">
+        <div class="hero-banner">
+          <div class="hero-tag">🎮 Interactive Simulation & AI Balancing Sandbox</div>
+          <h1 class="hero-title">Smart Home & Locality Energy Simulator</h1>
+          <p class="hero-desc">
+            Interact with appliances across living zones in real time. Adjust thermostats, toggle loads, manage solar generation, and trigger <b>AI Auto-Optimization</b> to eliminate waste and peak surcharges.
+          </p>
+        </div>
+
+        <div class="simulator-container">
+          <!-- Main Left Canvas -->
+          <div class="sim-estate-canvas">
+            <!-- Top Controls -->
+            <div class="sim-top-toolbar">
+              <div class="sim-time-weather">
+                <div class="time-badge">
+                  <span>🕒 Time:</span> <b id="simTimeDisplay">14:00</b>
+                </div>
+                <input type="range" class="range-slider" id="simTimeSlider" min="0" max="23" value="14" style="width:110px;" />
+
+                <div class="time-badge">
+                  <span>🌡️ Outdoor:</span> <b id="simTempDisplay">33°C</b>
+                </div>
+                <input type="range" class="range-slider" id="simTempSlider" min="15" max="44" value="33" style="width:90px;" />
+              </div>
+
+              <div class="sim-actions-group">
+                <button class="btn btn-ai-optimize" onclick="window.simulator.aiAutoOptimize()">
+                  <span>🤖</span> AI Eco-Optimize & Balance
+                </button>
+              </div>
+            </div>
+
+            <!-- Solar & Storage Rooftop Bar -->
+            <div class="solar-storage-bar" style="margin-bottom: 1.5rem;">
+              <div class="solar-stat">
+                <div class="solar-icon-box">☀️</div>
+                <div>
+                  <div class="solar-label">Rooftop Solar PV (6.5 kWp)</div>
+                  <div class="solar-value" id="simSolarGen">4.85 kW</div>
+                </div>
+              </div>
+              <div class="solar-stat">
+                <div class="solar-icon-box" style="background:rgba(0,198,255,0.15); color:var(--accent-cyan); border-color:rgba(0,198,255,0.3);">🔋</div>
+                <div>
+                  <div class="solar-label">Smart Storage Battery</div>
+                  <div class="solar-value">7.8 / 10.0 kWh (78%)</div>
+                </div>
+              </div>
+              <div class="solar-stat">
+                <div class="solar-icon-box" style="background:rgba(0,229,163,0.15); color:var(--accent-emerald); border-color:rgba(0,229,163,0.3);">⚡</div>
+                <div>
+                  <div class="solar-label">Net Grid Flow</div>
+                  <div class="solar-value" id="simNetGrid">0.00 kW (Net Zero)</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Dynamic Room Blueprint Grid -->
+            <div class="estate-rooms-grid" id="estateRoomsGrid">
+              <!-- Rendered dynamically by simulator.js -->
+            </div>
+          </div>
+
+          <!-- Right Telemetry Panel -->
+          <div class="sim-telemetry-panel">
+            <!-- Active Load Gauge -->
+            <div class="meter-gauge-card">
+              <div class="kpi-label">Active Total Power Draw</div>
+              <div class="gauge-circle">
+                <div class="gauge-value" id="simTotalPower">4.85</div>
+                <div class="gauge-unit">KILOWATTS (kW)</div>
+              </div>
+              <div style="margin-top: 0.5rem;">
+                <span class="badge badge-low" id="simTariffTag">Standard Tariff</span>
+              </div>
+            </div>
+
+            <!-- Rate & Emissions Cards -->
+            <div class="grid-2" style="gap:0.75rem;">
+              <div class="kpi-card" style="padding:1rem;">
+                <div class="kpi-label">Hourly Cost</div>
+                <div class="kpi-value" style="font-size:1.25rem;" id="simCostRate">₹0.00/hr</div>
+              </div>
+              <div class="kpi-card" style="padding:1rem;">
+                <div class="kpi-label">CO₂ Output</div>
+                <div class="kpi-value" style="font-size:1.25rem;" id="simCo2Rate">0.00 kg/hr</div>
+              </div>
+            </div>
+
+            <!-- Energy Leaks / Inefficiencies Feed -->
+            <div class="waste-feed-card">
+              <div class="panel-title-text" style="font-size:0.9rem; margin-bottom:0.75rem;">
+                <span>🔍</span> Inefficiencies & Waste Detection
+              </div>
+              <div id="simWasteFeed">
+                <!-- Populated dynamically -->
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==========================================================
+           VIEW 2: COMMAND CENTER & REAL-TIME MONITORING
+      ========================================================== -->
+      <section id="commandView" class="view-section">
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <span class="kpi-label">Total Consumption</span>
+              <span class="kpi-icon-badge">⚡</span>
+            </div>
+            <div class="kpi-value" id="kpiTotalKwh">Loading...</div>
+            <div class="kpi-footer">
+              <span class="kpi-delta good">● Live Ingested</span>
+            </div>
+          </div>
+
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <span class="kpi-label">Total Electricity Bill</span>
+              <span class="kpi-icon-badge">💰</span>
+            </div>
+            <div class="kpi-value" id="kpiTotalCost">Loading...</div>
+            <div class="kpi-footer">
+              <span class="kpi-delta good">₹8.00 / kWh Base</span>
+            </div>
+          </div>
+
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <span class="kpi-label">Carbon Footprint</span>
+              <span class="kpi-icon-badge">🌱</span>
+            </div>
+            <div class="kpi-value" id="kpiTotalCo2">Loading...</div>
+            <div class="kpi-footer">
+              <span class="kpi-delta">0.82 kg CO₂ / kWh</span>
+            </div>
+          </div>
+
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <span class="kpi-label">Average Demand</span>
+              <span class="kpi-icon-badge">📈</span>
+            </div>
+            <div class="kpi-value" id="kpiAvgPower">Loading...</div>
+            <div class="kpi-footer">
+              <span class="kpi-delta good">Across 3 Buildings</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid-2-1">
+          <div class="glass-panel">
+            <div class="panel-title-bar">
+              <div>
+                <div class="panel-title-text"><span>📈</span> 72-Hour Real-Time Telemetry Stream</div>
+                <div class="panel-subtitle-text">Hourly energy consumption and aggregated power draw</div>
+              </div>
+            </div>
+            <div style="height: 320px;">
+              <canvas id="telemetryChart"></canvas>
+            </div>
+          </div>
+
+          <div class="glass-panel">
+            <div class="panel-title-bar">
+              <div>
+                <div class="panel-title-text"><span>🥧</span> Appliance Load Distribution</div>
+                <div class="panel-subtitle-text">Overall breakdown by category</div>
+              </div>
+            </div>
+            <div style="height: 320px;">
+              <canvas id="applianceDonutChart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div class="glass-panel">
+          <div class="panel-title-bar">
+            <div>
+              <div class="panel-title-text"><span>📅</span> Daily Consumption Trend</div>
+              <div class="panel-subtitle-text">Aggregated building usage across the last 30 days</div>
+            </div>
+          </div>
+          <div style="height: 260px;">
+            <canvas id="dailyTrendChart"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==========================================================
+           VIEW 3: AI FORECASTING & WHAT-IF SANDBOX
+      ========================================================== -->
+      <section id="forecastView" class="view-section">
+        <div class="hero-banner">
+          <div class="hero-tag">🧠 Machine Learning Predictive Modeling</div>
+          <h1 class="hero-title">Predictive Demand Forecast & What-If Sandbox</h1>
+          <p class="hero-desc">
+            Multi-variable Random Forest Regression model forecasting hourly consumption with historical lag features, diurnal ambient weather, and occupancy factors.
+          </p>
+        </div>
+
+        <!-- Model Accuracy Badges -->
+        <div class="grid-3" style="margin-bottom:1.5rem;">
+          <div class="kpi-card">
+            <div class="kpi-label">R² Fit Score</div>
+            <div class="kpi-value" style="color:var(--accent-emerald);" id="modelR2">0.9885</div>
+            <div class="kpi-footer">Accuracy Variance Explained</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Mean Absolute Error (MAE)</div>
+            <div class="kpi-value" style="color:var(--accent-cyan);" id="modelMae">1.36 kWh</div>
+            <div class="kpi-footer">Average Residual Error</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Root Mean Square Error</div>
+            <div class="kpi-value" style="color:var(--accent-purple);" id="modelRmse">2.12 kWh</div>
+            <div class="kpi-footer">Penalized Outlier Deviation</div>
+          </div>
+        </div>
+
+        <div class="grid-2-1">
+          <div class="glass-panel">
+            <div class="panel-title-bar">
+              <div class="panel-title-text"><span>🔮</span> 48-Hour Forward Predictive Demand Curve</div>
+            </div>
+            <div style="height: 320px;">
+              <canvas id="forecastCurveChart"></canvas>
+            </div>
+          </div>
+
+          <div class="glass-panel">
+            <div class="panel-title-bar">
+              <div class="panel-title-text"><span>⚖️</span> Feature Importance Weights</div>
+            </div>
+            <div style="height: 320px;">
+              <canvas id="featureImportanceChart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Interactive What-If Scenario Sandbox -->
+        <div class="glass-panel" style="border:1px solid rgba(155,89,182,0.4);">
+          <div class="panel-title-bar">
+            <div>
+              <div class="panel-title-text"><span>🎛️</span> Interactive What-If Scenario Sandbox</div>
+              <div class="panel-subtitle-text">Simulate operational setbacks, thermostat optimization, and solar capacity offsets</div>
+            </div>
+          </div>
+
+          <div class="grid-3" style="margin-bottom:1.25rem;">
+            <div style="background:var(--bg-surface); padding:1rem; border-radius:var(--radius-sm); border:1px solid var(--border-subtle);">
+              <div style="display:flex; justify-content:space-between; margin-bottom:0.5rem; font-size:0.82rem;">
+                <span>HVAC Thermostat Setpoint:</span>
+                <b id="whatifTempVal" style="color:var(--accent-emerald);">+2.0°C</b>
+              </div>
+              <input type="range" class="range-slider" id="whatifTemp" min="0" max="5" step="0.5" value="2.0" style="width:100%;" />
+            </div>
+
+            <div style="background:var(--bg-surface); padding:1rem; border-radius:var(--radius-sm); border:1px solid var(--border-subtle);">
+              <div style="display:flex; justify-content:space-between; margin-bottom:0.5rem; font-size:0.82rem;">
+                <span>Occupancy Load Shedding:</span>
+                <b id="whatifOccVal" style="color:var(--accent-cyan);">-15%</b>
+              </div>
+              <input type="range" class="range-slider" id="whatifOcc" min="0" max="40" step="5" value="15" style="width:100%;" />
+            </div>
+
+            <div style="background:var(--bg-surface); padding:1rem; border-radius:var(--radius-sm); border:1px solid var(--border-subtle);">
+              <div style="display:flex; justify-content:space-between; margin-bottom:0.5rem; font-size:0.82rem;">
+                <span>Solar PV Capacity:</span>
+                <b id="whatifSolarVal" style="color:var(--accent-amber);">5.0 kWp</b>
+              </div>
+              <input type="range" class="range-slider" id="whatifSolar" min="0" max="15" step="1" value="5.0" style="width:100%;" />
+            </div>
+          </div>
+
+          <!-- Scenario Simulation Metrics -->
+          <div class="grid-3" style="margin-bottom:1.5rem;">
+            <div class="kpi-card" style="padding:1rem;">
+              <div class="kpi-label">24h Energy Saved</div>
+              <div class="kpi-value" style="font-size:1.35rem; color:var(--accent-emerald);" id="whatifSavingsKwh">--</div>
+            </div>
+            <div class="kpi-card" style="padding:1rem;">
+              <div class="kpi-label">24h Cost Saved</div>
+              <div class="kpi-value" style="font-size:1.35rem; color:var(--accent-emerald);" id="whatifSavingsCost">--</div>
+            </div>
+            <div class="kpi-card" style="padding:1rem;">
+              <div class="kpi-label">Peak Demand Reduction</div>
+              <div class="kpi-value" style="font-size:1.35rem; color:var(--accent-cyan);" id="whatifSavingsPct">--</div>
+            </div>
+          </div>
+
+          <div style="height: 300px;">
+            <canvas id="whatifSandboxChart"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==========================================================
+           VIEW 4: ANOMALY INTELLIGENCE
+      ========================================================== -->
+      <section id="anomalyView" class="view-section">
+        <div class="hero-banner">
+          <div class="hero-tag">🚨 Unsupervised Isolation Forest</div>
+          <h1 class="hero-title">Anomaly Intelligence & Root-Cause Matrix</h1>
+          <p class="hero-desc">
+            Detects uncharacteristic spikes, phantom nighttime draws, and equipment degradation faults using multi-dimensional Isolation Forest clustering.
+          </p>
+        </div>
+
+        <div class="grid-4 kpi-grid">
+          <div class="kpi-card">
+            <div class="kpi-label">Critical Alerts</div>
+            <div class="kpi-value" style="color:var(--accent-red);" id="anomCriticalCount">--</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">High Severity</div>
+            <div class="kpi-value" style="color:var(--accent-amber);" id="anomHighCount">--</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Medium Severity</div>
+            <div class="kpi-value" style="color:var(--accent-cyan);" id="anomMediumCount">--</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Total Fault Events</div>
+            <div class="kpi-value" id="anomTotalCount">--</div>
+          </div>
+        </div>
+
+        <div class="glass-panel">
+          <div class="panel-title-bar">
+            <div class="panel-title-text"><span>📊</span> Anomalies by Appliance Class</div>
+          </div>
+          <div style="height: 240px;">
+            <canvas id="anomalyApplianceChart"></canvas>
+          </div>
+        </div>
+
+        <div class="glass-panel">
+          <div class="panel-title-bar">
+            <div class="panel-title-text"><span>📋</span> Real-Time Anomaly Audit Log</div>
+          </div>
+          <div class="table-container">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Timestamp</th>
+                  <th>Location</th>
+                  <th>Appliance</th>
+                  <th>Energy Usage</th>
+                  <th>Severity</th>
+                  <th>Root Cause & Diagnosis</th>
+                </tr>
+              </thead>
+              <tbody id="anomalyTableBody">
+                <!-- Populated dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==========================================================
+           VIEW 5: RECOMMENDATIONS
+      ========================================================== -->
+      <section id="recommendView" class="view-section">
+        <div class="hero-banner">
+          <div class="hero-tag">💡 Automated Efficiency Directives</div>
+          <h1 class="hero-title">AI Energy-Saving Recommendations & ROI</h1>
+          <p class="hero-desc">
+            Intelligent recommendations derived from usage patterns, thermodynamic inefficiencies, and time-of-use tariff arbitrage.
+          </p>
+        </div>
+
+        <div id="recommendationsList">
+          <!-- Populated dynamically by app.js -->
+        </div>
+      </section>
+
+      <!-- ==========================================================
+           VIEW 6: BUILDING ANALYTICS
+      ========================================================== -->
+      <section id="buildingView" class="view-section">
+        <div class="hero-banner">
+          <div class="hero-tag">🏢 Multi-Facility Breakdown</div>
+          <h1 class="hero-title">Building & Floor Intelligence</h1>
+        </div>
+
+        <div class="glass-panel">
+          <div class="panel-title-bar">
+            <div class="panel-title-text"><span>🏢</span> Facility Benchmark Comparison</div>
+          </div>
+          <div style="height: 350px;">
+            <canvas id="buildingComparisonChart"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==========================================================
+           VIEW 7: DATA STUDIO & INGESTION
+      ========================================================== -->
+      <section id="uploadView" class="view-section">
+        <div class="hero-banner">
+          <div class="hero-tag">📁 Data Pipeline & Ingestion</div>
+          <h1 class="hero-title">Data Studio & CSV/Excel Uploader</h1>
+          <p class="hero-desc">
+            Upload historical energy metering files (.csv, .xlsx, .xls) to augment SQLite records and re-train machine learning models on new facility data.
+          </p>
+        </div>
+
+        <div class="glass-panel">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+            <div class="panel-title-text"><span>📤</span> Upload Dataset</div>
+            <div>
+              <label style="font-size:0.8rem; color:var(--text-muted); margin-right:0.5rem;">Sync Mode:</label>
+              <select id="uploadModeSelect" style="background:#091622; color:#fff; border:1px solid var(--border-subtle); padding:0.35rem 0.75rem; border-radius:4px;">
+                <option value="append">Append Records</option>
+                <option value="replace">Replace Existing Database</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="dropzone" id="uploadDropzone">
+            <div class="dropzone-icon">📁</div>
+            <div style="font-size:1.1rem; font-weight:700; color:#fff; margin-bottom:0.35rem;">
+              Drag & Drop your CSV or Excel file here
+            </div>
+            <div style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1rem;">
+              Supports .csv, .xlsx, .xls (Requires 'timestamp' and 'energy_kwh' columns)
+            </div>
+            <button class="btn btn-primary" type="button">Browse Computer</button>
+            <input type="file" id="fileInput" accept=".csv, .xlsx, .xls" style="display:none;" />
+          </div>
+
+          <div id="uploadResultStatus" style="margin-top:1.5rem;"></div>
+        </div>
+      </section>
+
+      <!-- ==========================================================
+           VIEW 8: MONTHLY REPORTS
+      ========================================================== -->
+      <section id="reportsView" class="view-section">
+        <div class="hero-banner">
+          <div class="hero-tag">📄 Executive Reporting</div>
+          <h1 class="hero-title">Monthly Energy Statements & Audit Reports</h1>
+        </div>
+
+        <div class="glass-panel">
+          <div class="table-container">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Billing Month</th>
+                  <th>Total Consumption</th>
+                  <th>Total Cost</th>
+                  <th>Carbon Emitted</th>
+                  <th>Peak Power Demand</th>
+                  <th>Energy Intensity</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="monthlyReportsTable">
+                <!-- Populated dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<!-- AI Optimization Popup Toast -->
+<div class="optimization-popup" id="optToast">
+  <div style="display:flex; align-items:center; gap:0.65rem; margin-bottom:0.5rem;">
+    <span style="font-size:1.3rem;">✨</span>
+    <b style="color:#fff; font-size:0.95rem;">AI Optimization Applied!</b>
+  </div>
+  <p style="font-size:0.82rem; color:var(--text-muted); line-height:1.45; margin-bottom:0.65rem;">
+    Thermostats adjusted to 24°C, vacant room lighting isolated, and peak EV loads deferred.
+  </p>
+  <div style="display:flex; justify-content:space-between; font-family:'DM Mono', monospace; font-size:0.75rem; color:var(--accent-emerald);">
+    <span>⚡ Power Saved: ~2.4 kW</span>
+    <span>💰 Saved: ₹18.0/hr</span>
+  </div>
+</div>
+
+<!-- Toast Container -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- Scripts -->
+<script src="js/simulator.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

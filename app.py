@@ -9,6 +9,9 @@ import streamlit as st
 from sklearn.ensemble import IsolationForest
 from sklearn.metrics import mean_absolute_error, r2_score
 
+from src.prediction import get_feature_importances, simulate_what_if_scenario
+from src.database import run_query
+
 BASE_DIR = Path(__file__).resolve().parent
 DB_PATH = BASE_DIR / "database" / "energy.db"
 MODEL_PATH = BASE_DIR / "models" / "energy_model.pkl"
@@ -136,8 +139,7 @@ def inject_styles():
     .home-hero h1 { margin:0 0 .85rem; color:#fff; font-size:clamp(2.15rem,4vw,3.45rem) !important; line-height:1.12; letter-spacing:-.035em; }
     .home-hero p { max-width:620px; color:#d9e2e8; font-size:1rem; line-height:1.65; margin:0 0 .85rem; }
     .home-hero p.home-supporting-copy { color:#b8c6d0; max-width:630px; margin-bottom:1.45rem; }
-    .home-cta { display:inline-block; padding:.72rem 1.1rem; border:1px solid #58c9bc; border-radius:5px; background:#57c2b5; color:#071426 !important; font-size:.82rem; font-weight:800; text-decoration:none !important; transition:background .16s ease,transform .16s ease; }
-    .home-cta:hover { background:#73d3c7; transform:translateY(-1px); }
+    .home-cta { display:inline-block; padding:.72rem 1.1rem; border:1px solid #58c9bc; border-radius:5px; background:#57c2b5; color:#071426 !important; font-size:.82rem; font-weight:800; text-decoration:none !important; cursor:pointer; }
     .home-light-section { padding:3.75rem 3rem 3.5rem; background:#f4f7f7; color:#132330; }
     .home-light-section h2 { max-width:760px; color:#102333; font-size:clamp(1.55rem,2.4vw,2.15rem) !important; line-height:1.18; margin:0 0 .85rem; }
     .home-light-section > p { max-width:730px; color:#526473; font-size:1rem; line-height:1.7; margin:0 0 2rem; }
@@ -150,12 +152,8 @@ def inject_styles():
     .home-final-cta { margin-top:2.25rem; padding:1.8rem 2rem; border:1px solid #245550; border-radius:9px; background:#0b1d2b; }
     .home-final-cta h3 { margin:0 0 .5rem; color:#f4f8fa; font-size:1.05rem !important; font-weight:800; letter-spacing:.06em; }
     .home-final-cta p { max-width:660px; margin:0 0 1.1rem; color:#b7c5ce; font-size:.91rem; line-height:1.55; }
-    .home-final-cta .home-cta { padding:.65rem 1rem; font-size:.78rem; }
-    @media (max-width:800px) { .home-page { margin:-1.25rem -1rem -2rem; } .home-site-header { height:62px; padding:0 1rem; } .home-header-context { display:none; } .home-hero { min-height:0; padding:3rem 1rem; } .home-light-section { padding:3rem 1rem; } .home-features { grid-template-columns:repeat(2,minmax(0,1fr)); gap:.85rem; } .home-final-cta { padding:1.5rem; } }
-    @media (max-width:480px) { .home-features { grid-template-columns:1fr; } .home-hero h1 { font-size:2.35rem !important; } }
     #MainMenu,footer,[data-testid="stToolbar"] { visibility:hidden; }
 
-    /* Keep Streamlit's interactive surfaces within the NEXUS dark palette. */
     [data-baseweb="popover"], [data-baseweb="menu"], [role="listbox"] { background:#0d1a25 !important; color:#dce7ee !important; border-color:#2b4354 !important; }
     [role="option"] { background:#0d1a25 !important; color:#dce7ee !important; }
     [role="option"]:hover, [role="option"][aria-selected="true"] { background:#14313a !important; }
@@ -189,12 +187,12 @@ def model_available():
 
 
 @st.cache_data(show_spinner=False)
-def detect_anomalies(data):
+def detect_anomalies(data, contamination=0.02):
     if data.empty:
         return data.copy()
     features = ["temperature_c", "humidity_percent", "occupancy", "power_kw", "energy_kwh"]
     result = data.copy()
-    detector = IsolationForest(contamination=0.02, random_state=42, n_estimators=100)
+    detector = IsolationForest(contamination=contamination, random_state=42, n_estimators=100)
     result["anomaly_label"] = detector.fit_predict(result[features])
     result["anomaly_score"] = -detector.decision_function(result[features])
     baseline = result.groupby("appliance")["energy_kwh"].transform("median")
@@ -256,48 +254,11 @@ def model_metrics(hourly, model):
     return r2_score(frame["energy_kwh"].iloc[split:], predictions), mean_absolute_error(frame["energy_kwh"].iloc[split:], predictions), frame
 
 
-def _legacy_sidebar_controls(data):
-    st.sidebar.markdown('<div class="brand">NEXUS<span> / ENERGY</span></div>', unsafe_allow_html=True)
-    st.sidebar.caption("Smart building intelligence platform")
-    st.sidebar.markdown('<div class="status"><span class="dot"></span> SIMULATED IoT ONLINE</div>', unsafe_allow_html=True)
-    st.sidebar.markdown("---")
-    page_groups = {
-        "OVERVIEW": ["Welcome", "Command Center"],
-        "MONITOR": ["Live IoT Monitoring", "AI Energy Forecast", "Anomaly Intelligence"],
-        "OPTIMIZE": ["Energy Optimization", "Building Intelligence"],
-        "ANALYZE": ["SQL Analytics Lab", "Sustainability"],
-        "REPORT": ["Report Center"],
-    }
-    pages = [page for group in page_groups.values() for page in group]
-    nav_labels = {
-        "Welcome": "◈  OVERVIEW / Welcome", "Command Center": "▣  OVERVIEW / Command Center",
-        "Live IoT Monitoring": "◉  MONITOR / Live IoT", "AI Energy Forecast": "✦  PREDICT / AI Energy Forecast",
-        "Anomaly Intelligence": "!  DETECT / Anomaly Intelligence", "Energy Optimization": "↗  OPTIMIZE / Energy Optimization",
-        "Building Intelligence": "▤  ANALYZE / Building Intelligence", "SQL Analytics Lab": "⌘  ANALYZE / SQL Analytics Lab",
-        "Sustainability": "♧  SUSTAINABILITY", "Report Center": "▱  REPORT / Report Center",
-    }
-    st.sidebar.caption("WORKSPACE")
-    st.sidebar.markdown("<div class=\"subtle\">OPERATIONS WORKSPACES</div>", unsafe_allow_html=True)
-    page = st.sidebar.radio("Navigate", pages, format_func=lambda item: nav_labels[item], label_visibility="collapsed", key="page_navigation")
-    st.sidebar.markdown("---")
-    st.sidebar.caption("GLOBAL FILTERS")
-    buildings = sorted(data["building"].unique()) if not data.empty else []
-    floors = sorted(data["floor"].unique()) if not data.empty else []
-    appliances = sorted(data["appliance"].unique()) if not data.empty else []
-    selected_buildings = st.sidebar.multiselect("Building", buildings, default=buildings)
-    selected_floors = st.sidebar.multiselect("Floor", floors, default=floors)
-    selected_appliances = st.sidebar.multiselect("Appliance", appliances, default=appliances)
-    min_occupancy = st.sidebar.slider("Minimum occupancy", 0, int(data["occupancy"].max()) if not data.empty else 0, 0)
-    return page, selected_buildings, selected_floors, selected_appliances, min_occupancy
-
-
 def set_active_page(page):
-    """Set the requested page in a callback before the next app render."""
     st.session_state["active_page"] = page
 
 
 def sidebar_controls(data):
-    """Render the compact, original-style navigation without permanent filters."""
     page = st.session_state.get("active_page", "Welcome")
     page_groups = [
         ("HOME", [("Home", "Welcome")]),
@@ -315,7 +276,6 @@ def sidebar_controls(data):
 
 
 def page_filters(data):
-    """Compact, page-level scope controls for data-driven workspaces."""
     buildings = sorted(data["building"].unique()) if not data.empty else []
     floors = sorted(data["floor"].unique()) if not data.empty else []
     appliances = sorted(data["appliance"].unique()) if not data.empty else []
@@ -335,7 +295,6 @@ def page_filters(data):
 
 
 def apply_scope(data, buildings, floors, appliances, date_range):
-    """Apply the existing page-level selection without altering source data."""
     start_date = pd.Timestamp(date_range[0])
     end_date = pd.Timestamp(date_range[1]) + pd.Timedelta(days=1)
     return data[
@@ -347,14 +306,14 @@ def apply_scope(data, buildings, floors, appliances, date_range):
     ].copy()
 
 
-def product_status_bar(model):
-    model_state = "AI MODEL READY" if model is not None else "AI MODEL UNAVAILABLE"
-    st.markdown(f'<div class="product-bar"><div class="product-bar-name">NEXUS <span>/ ENERGY</span></div><div class="product-statuses"><span class="status"><span class="dot"></span> SYSTEM OPERATIONAL</span><span>SIMULATED IOT</span><span>SQLITE CONNECTED</span><span>{model_state}</span></div></div>', unsafe_allow_html=True)
-
-
 def welcome_page(data, model):
-    """Compact product landing page; intentionally free of imagery and dashboard content."""
-    st.markdown('<main class="home-page"><header class="home-site-header"><div class="home-wordmark">NEXUS <span>/ ENERGY</span></div><div class="home-header-context">SMART BUILDING INTELLIGENCE</div></header><section class="home-hero"><div class="home-hero-content"><div class="home-kicker">NEXUS ENERGY</div><h1>AI-Powered Smart Building Intelligence</h1><p>Monitor energy. Predict demand. Detect anomalies. Optimize consumption.</p><p class="home-supporting-copy">An intelligent energy analytics platform designed to help buildings reduce energy consumption, operating cost, and carbon impact.</p><a class="home-cta" href="?page=command-center">Explore Dashboard &rarr;</a></div></section><section class="home-light-section"><h2>SMARTER ENERGY. BETTER BUILDINGS.</h2><p>NEXUS combines energy monitoring, machine learning, anomaly detection and optimization recommendations into one intelligent building energy platform.</p><div class="home-features"><article class="home-feature"><b>MONITOR</b><span>Real-time energy and environmental telemetry.</span></article><article class="home-feature"><b>PREDICT</b><span>AI-based energy demand forecasting.</span></article><article class="home-feature"><b>DETECT</b><span>Identify abnormal consumption patterns.</span></article><article class="home-feature"><b>OPTIMIZE</b><span>Actionable recommendations for reducing energy use.</span></article></div><section class="home-final-cta"><h3>MAKE EVERY UNIT OF ENERGY COUNT.</h3><p>Explore the NEXUS intelligence dashboard and turn energy data into actionable insight.</p><a class="home-cta" href="?page=command-center">Explore Dashboard &rarr;</a></section></section></main>', unsafe_allow_html=True)
+    st.markdown('<main class="home-page"><header class="home-site-header"><div class="home-wordmark">NEXUS <span>/ ENERGY</span></div><div class="home-header-context">SMART BUILDING INTELLIGENCE</div></header><section class="home-hero"><div class="home-hero-content"><div class="home-kicker">NEXUS ENERGY</div><h1>AI-Powered Smart Building Intelligence</h1><p>Monitor energy. Predict demand. Detect anomalies. Optimize consumption.</p><p class="home-supporting-copy">An intelligent energy analytics platform designed to help buildings reduce energy consumption, operating cost, and carbon impact.</p></div></section></main>', unsafe_allow_html=True)
+
+    if st.button("Explore Dashboard →", type="primary", key="welcome_explore_btn"):
+        set_active_page("Command Center")
+        st.rerun()
+
+    st.markdown('<section class="home-light-section"><h2>SMARTER ENERGY. BETTER BUILDINGS.</h2><p>NEXUS combines energy monitoring, machine learning, anomaly detection and optimization recommendations into one intelligent building energy platform.</p><div class="home-features"><article class="home-feature"><b>MONITOR</b><span>Real-time energy and environmental telemetry.</span></article><article class="home-feature"><b>PREDICT</b><span>AI-based energy demand forecasting.</span></article><article class="home-feature"><b>DETECT</b><span>Identify abnormal consumption patterns.</span></article><article class="home-feature"><b>OPTIMIZE</b><span>Actionable recommendations for reducing energy use.</span></article></div></section>', unsafe_allow_html=True)
 
 
 def command_center(filtered, model):
@@ -424,55 +383,92 @@ def live_monitoring(filtered):
 
 
 def forecast_page(filtered, model):
-    st.markdown('<div class="eyebrow">03 / Predictive intelligence</div><div class="hero"><h1>AI Energy Forecast</h1><div class="subtle">Random Forest demand forecast using the project model and eight engineered features.</div></div>', unsafe_allow_html=True)
+    st.markdown('<div class="eyebrow">03 / Predictive intelligence</div><div class="hero"><h1>AI Energy Forecast</h1><div class="subtle">Random Forest demand forecast using the trained model and 8 engineered features.</div></div>', unsafe_allow_html=True)
     hourly = hourly_frame(filtered)
     if hourly.empty or model is None: empty_state("Forecast requires the saved model and at least one data record."); return
     r2, mae, prepared = model_metrics(hourly, model)
     cols = st.columns(5)
     with cols[0]: metric("Model", "Random Forest", "trained artifact")
-    with cols[1]: metric("R²", f"{r2:.3f}" if r2 is not None else "—", "chronological holdout")
+    with cols[1]: metric("R² Score", f"{r2:.3f}" if r2 is not None else "—", "chronological holdout")
     with cols[2]: metric("MAE", f"{mae:.2f} kWh" if mae is not None else "—", "chronological holdout")
     with cols[3]: metric("Forecast horizon", "24 hours", "rolling estimate")
     with cols[4]: metric("Dataset", f"{len(filtered):,}", "active records")
+
     features = ["temperature_c","humidity_percent","occupancy","hour","day_of_week","month","previous_energy","energy_24h_ago"]
-    if len(prepared) > 36:
-        test = prepared.tail(48).copy(); test["predicted"] = model.predict(test[features])
-        chart = go.Figure(); chart.add_trace(go.Scatter(x=test.timestamp, y=test.energy_kwh, name="Actual", line={"color":"#55d6c2"})); chart.add_trace(go.Scatter(x=test.timestamp, y=test.predicted, name="Predicted", line={"color":"#f4b860","dash":"dot"}))
-        st.markdown('<div class="panel">', unsafe_allow_html=True); panel_heading("Actual vs predicted", "Model backtest on the latest 48 valid hourly records")
-        st.plotly_chart(make_fig(chart, 350), use_container_width=True); st.markdown('</div>', unsafe_allow_html=True)
-    latest = prepared.iloc[-1].copy(); rows = []
-    for step in range(1, 25):
-        stamp = latest.timestamp + pd.Timedelta(hours=step); row = latest.copy(); row["timestamp"] = stamp; row["hour"] = stamp.hour; row["day_of_week"] = stamp.dayofweek; row["month"] = stamp.month; row["previous_energy"] = latest.energy_kwh; row["energy_24h_ago"] = prepared.iloc[max(0, len(prepared)-24)]["energy_kwh"]; row["energy_kwh"] = model.predict(pd.DataFrame([row])[features])[0]; latest = row; rows.append(row)
-    future = pd.DataFrame(rows)
-    peak_position = future["energy_kwh"].to_numpy().argmax()
-    peak_energy = float(future["energy_kwh"].iloc[peak_position])
-    peak_timestamp = pd.Timestamp(future["timestamp"].iloc[peak_position])
-    forecast_energy = float(future["energy_kwh"].sum())
-    cols = st.columns(2)
-    with cols[0]: metric("Predicted peak demand", f"{peak_energy:,.1f} kWh", f"{peak_timestamp:%H:%M} expected peak")
-    with cols[1]: metric("24-hour energy", f"{forecast_energy:,.1f} kWh", "model projection")
-    st.markdown('<div class="panel">', unsafe_allow_html=True); panel_heading("Next 24-hour forecast", "Iterative forecast seeded from the latest portfolio state")
-    st.plotly_chart(make_fig(px.line(future, x="timestamp", y="energy_kwh", color_discrete_sequence=["#55d6c2"]), 300), use_container_width=True); st.markdown('</div>', unsafe_allow_html=True)
-    st.markdown("### What influences demand")
-    st.caption("The model uses temperature, humidity, occupancy, hour, day of week, month, previous energy, and energy from 24 hours earlier. Occupancy and lagged energy capture operating rhythm; temperature and humidity capture cooling load.")
-    st.markdown("### Model insights")
-    insight_cols = st.columns(2)
-    with insight_cols[0]:
-        st.markdown('<div class="panel"><div class="panel-title">Performance interpretation</div><div class="subtle">R² describes how much variation the holdout predictions explain. MAE is the average absolute error in the same kWh unit as the target. Both metrics are calculated from the loaded model and active data.</div></div>', unsafe_allow_html=True)
-    with insight_cols[1]:
-        st.markdown('<div class="panel"><div class="panel-title">Engineered feature set</div><div class="subtle">Temperature · humidity · occupancy · hour · day of week · month · previous energy · energy 24 hours ago</div></div>', unsafe_allow_html=True)
+
+    col_left, col_right = st.columns(2)
+    with col_left:
+        if len(prepared) > 36:
+            test = prepared.tail(48).copy()
+            test["predicted"] = model.predict(test[features])
+            chart = go.Figure()
+            chart.add_trace(go.Scatter(x=test.timestamp, y=test.energy_kwh, name="Actual", line={"color":"#55d6c2"}))
+            chart.add_trace(go.Scatter(x=test.timestamp, y=test.predicted, name="Predicted", line={"color":"#f4b860","dash":"dot"}))
+            st.markdown('<div class="panel">', unsafe_allow_html=True)
+            panel_heading("Actual vs predicted backtest", "Model backtest on the latest 48 hourly records")
+            st.plotly_chart(make_fig(chart, 320), use_container_width=True)
+            st.markdown('</div>', unsafe_allow_html=True)
+
+    with col_right:
+        df_imp = get_feature_importances(model)
+        if not df_imp.empty:
+            fig_imp = px.bar(df_imp, x="Importance", y="Feature", orientation="h", color="Importance", color_continuous_scale=["#1a3c40", "#55d6c2"])
+            fig_imp.update_layout(coloraxis_showscale=False)
+            st.markdown('<div class="panel">', unsafe_allow_html=True)
+            panel_heading("Feature Importance Weights", "Relative influence of input drivers on model predictions")
+            st.plotly_chart(make_fig(fig_imp, 320), use_container_width=True)
+            st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown("### 🎛️ Interactive 'What-If' HVAC & Occupancy Scenario Simulator")
+    st.caption("Adjust HVAC temperature setpoints or occupancy reduction controls below to simulate predicted 24-hour demand changes.")
+
+    sim_col1, sim_col2 = st.columns(2)
+    with sim_col1:
+        temp_delta = st.slider("HVAC Setpoint Increase (°C offset)", 0.0, 4.0, 1.5, 0.5, help="Raising cooling setpoint reduces HVAC power demand.")
+    with sim_col2:
+        occupancy_reduction = st.slider("Peak Occupancy Reduction (%)", 0, 50, 15, 5, help="Remote work or flexible scheduling reduces building occupancy.")
+
+    df_sim = simulate_what_if_scenario(model, hourly, temp_delta_c=temp_delta, occupancy_pct_reduction=occupancy_reduction)
+
+    if not df_sim.empty:
+        total_baseline = df_sim["Baseline Forecast (kWh)"].sum()
+        total_optimized = df_sim["Optimized Forecast (kWh)"].sum()
+        total_saved_kwh = df_sim["Savings (kWh)"].sum()
+        cost_saved = total_saved_kwh * 8.0
+        co2_saved = total_saved_kwh * 0.82
+
+        sim_m1, sim_m2, sim_m3, sim_m4 = st.columns(4)
+        with sim_m1: metric("Baseline 24h Load", f"{total_baseline:,.1f} kWh", "unadjusted scenario")
+        with sim_m2: metric("Optimized 24h Load", f"{total_optimized:,.1f} kWh", "simulated scenario")
+        with sim_m3: metric("Predicted Savings", f"{total_saved_kwh:,.1f} kWh", f"₹{cost_saved:,.0f} cost reduction")
+        with sim_m4: metric("CO2 Reduction", f"{co2_saved:,.1f} kg", "simulated 24h impact")
+
+        fig_sim = go.Figure()
+        fig_sim.add_trace(go.Scatter(x=df_sim["timestamp"], y=df_sim["Baseline Forecast (kWh)"], name="Baseline Forecast", line={"color":"#f4b860"}))
+        fig_sim.add_trace(go.Scatter(x=df_sim["timestamp"], y=df_sim["Optimized Forecast (kWh)"], name="Optimized Forecast", line={"color":"#55d6c2"}))
+        st.markdown('<div class="panel">', unsafe_allow_html=True)
+        panel_heading("24-Hour Projected Load Comparison", "Baseline demand vs Optimized scenario demand")
+        st.plotly_chart(make_fig(fig_sim, 330), use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
 
 def anomaly_page(filtered):
     st.markdown('<div class="eyebrow">04 / Detection</div><div class="hero"><h1>Anomaly Intelligence</h1><div class="subtle">Isolation Forest scans multi-sensor behavior for unusual energy events.</div></div>', unsafe_allow_html=True)
-    result = detect_anomalies(filtered)
+
+    c_col1, c_col2 = st.columns([1.5, 1])
+    with c_col1:
+        contamination_pct = st.slider("Anomaly Sensitivity (Contamination %)", 0.5, 5.0, 2.0, 0.5) / 100.0
+
+    result = detect_anomalies(filtered, contamination=contamination_pct)
     if result.empty: empty_state(); return
+
     anomalies = result[result.anomaly_label == -1].sort_values("anomaly_score", ascending=False)
     cols = st.columns(4)
     values = [len(result), len(anomalies), anomalies.excess_energy_kwh.sum(), anomalies.excess_cost_inr.sum()]
     labels = ["Records analyzed", "Anomalies", "Excess energy", "Excess cost"]
     for col, label, value in zip(cols, labels, values):
         with col: metric(label, f"{value:,.0f}" + (" kWh" if label == "Excess energy" else " ₹" if label == "Excess cost" else ""), "Isolation Forest output")
+
     left, right = st.columns([1.3, 1])
     with left:
         st.markdown('<div class="panel">', unsafe_allow_html=True); panel_heading("Alert queue", "Critical and high-severity events first")
@@ -484,6 +480,7 @@ def anomaly_page(filtered):
         trend = result.assign(anomaly=(result.anomaly_label == -1).astype(int)).groupby(result.timestamp.dt.date).anomaly.sum().reset_index(name="alerts")
         st.markdown('<div class="panel">', unsafe_allow_html=True); panel_heading("Anomaly trend", "Daily alert volume")
         st.plotly_chart(make_fig(px.bar(trend, x="timestamp", y="alerts", color_discrete_sequence=["#ff7068"]), 300), use_container_width=True); st.markdown('</div>', unsafe_allow_html=True)
+
     st.dataframe(anomalies[["timestamp","building","floor","appliance","severity","anomaly_score","excess_energy_kwh","excess_cost_inr"]].head(25).round(3), hide_index=True, use_container_width=True)
 
 
@@ -536,17 +533,40 @@ def intelligence_page(data):
 
 
 def sql_page():
-    st.markdown('<div class="eyebrow">Database analytics</div><div class="hero"><h1>SQL Analytics</h1><div class="subtle">Transparent analytical queries executed against SQLite table energy_consumption.</div></div>', unsafe_allow_html=True)
-    queries = [("Building load profile", "SELECT building, ROUND(SUM(energy_kwh), 2) AS total_energy_kwh, ROUND(AVG(power_kw), 2) AS average_power_kw FROM energy_consumption GROUP BY building ORDER BY total_energy_kwh DESC;", "Ranks buildings by total energy and average power."), ("Peak operating hours", "SELECT CAST(strftime('%H', timestamp) AS INTEGER) AS hour, ROUND(AVG(energy_kwh), 2) AS average_energy_kwh, ROUND(MAX(energy_kwh), 2) AS peak_energy_kwh FROM energy_consumption GROUP BY hour ORDER BY average_energy_kwh DESC;", "Finds the hours with the highest average and peak record-level load."), ("Appliance intensity", "SELECT appliance, ROUND(SUM(energy_kwh), 2) AS total_energy_kwh, ROUND(AVG(occupancy), 1) AS average_occupancy FROM energy_consumption GROUP BY appliance ORDER BY total_energy_kwh DESC;", "Compares appliance energy contribution with the occupancy context.")]
+    st.markdown('<div class="eyebrow">Database analytics</div><div class="hero"><h1>SQL Analytics Lab</h1><div class="subtle">Run interactive analytical queries against SQLite table energy_consumption.</div></div>', unsafe_allow_html=True)
     if not DB_PATH.exists(): empty_state("SQLite database not found."); return
+
     with sqlite3.connect(DB_PATH) as conn:
         record_count = int(pd.read_sql_query("SELECT COUNT(*) AS records FROM energy_consumption", conn).iloc[0, 0])
-    st.markdown(f'<div class="query-card"><div class="query-meta"><span class="dot"></span> SQLITE CONNECTED &nbsp;•&nbsp; energy_consumption &nbsp;•&nbsp; {record_count:,} RECORDS</div><div class="subtle" style="margin-top:.45rem">Auditable SQL workspace using the project database.</div></div>', unsafe_allow_html=True)
+
+    st.markdown(f'<div class="query-card"><div class="query-meta"><span class="dot"></span> SQLITE CONNECTED &nbsp;•&nbsp; energy_consumption &nbsp;•&nbsp; {record_count:,} RECORDS</div><div class="subtle" style="margin-top:.45rem">Auditable SQL workspace using indexed project database.</div></div>', unsafe_allow_html=True)
+
+    default_custom_sql = "SELECT building, appliance, ROUND(AVG(power_kw), 2) AS avg_power, ROUND(SUM(energy_kwh), 2) AS total_kwh FROM energy_consumption GROUP BY building, appliance ORDER BY total_kwh DESC LIMIT 15;"
+
+    st.markdown("### 💻 Custom Ad-Hoc SQL Query Console")
+    custom_query = st.text_area("Write SQL Query", value=default_custom_sql, height=100)
+
+    if st.button("Execute Custom Query", type="primary", key="exec_custom_sql"):
+        try:
+            res_df = run_query(custom_query)
+            st.success(f"Executed successfully! {len(res_df):,} rows returned.")
+            st.dataframe(res_df, hide_index=True, use_container_width=True)
+        except Exception as e:
+            st.error(f"SQL Execution Error: {e}")
+
+    st.markdown("---")
+    st.markdown("### 📋 Preset Analytics Queries")
+    queries = [
+        ("Building Load Profile", "SELECT building, ROUND(SUM(energy_kwh), 2) AS total_energy_kwh, ROUND(AVG(power_kw), 2) AS average_power_kw FROM energy_consumption GROUP BY building ORDER BY total_energy_kwh DESC;", "Ranks buildings by total energy and average power."),
+        ("Peak Operating Hours", "SELECT CAST(strftime('%H', timestamp) AS INTEGER) AS hour, ROUND(AVG(energy_kwh), 2) AS average_energy_kwh, ROUND(MAX(energy_kwh), 2) AS peak_energy_kwh FROM energy_consumption GROUP BY hour ORDER BY average_energy_kwh DESC;", "Finds the hours with the highest average and peak record-level load."),
+        ("Appliance Intensity", "SELECT appliance, ROUND(SUM(energy_kwh), 2) AS total_energy_kwh, ROUND(AVG(occupancy), 1) AS average_occupancy FROM energy_consumption GROUP BY appliance ORDER BY total_energy_kwh DESC;", "Compares appliance energy contribution with the occupancy context.")
+    ]
+
     for title, query, explanation in queries:
-        st.markdown(f'<div class="query-card"><div class="card-kicker">QUERY</div><div class="overview-title">{title}</div><div class="subtle">{explanation}</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="query-card"><div class="card-kicker">PRESET QUERY</div><div class="overview-title">{title}</div><div class="subtle">{explanation}</div></div>', unsafe_allow_html=True)
         st.code(query, language="sql")
         with sqlite3.connect(DB_PATH) as conn: result = pd.read_sql_query(query, conn)
-        st.markdown(f'<div class="query-meta">{len(result):,} RESULT ROWS &nbsp;•&nbsp; SQLITE QUERY EXECUTED</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="query-meta">{len(result):,} RESULT ROWS &nbsp;•&nbsp; EXECUTED</div>', unsafe_allow_html=True)
         st.dataframe(result, hide_index=True, use_container_width=True)
 
 
@@ -586,115 +606,9 @@ def report_page(filtered):
     with c2: st.download_button("Download HTML report", body, "nexus_energy_report.html", "text/html")
 
 
-def command_center(filtered, model):
-    st.markdown('<div class="eyebrow">Operations overview</div><div class="hero"><h1>Command Center</h1><div class="subtle">The essential view of portfolio energy performance and operating attention.</div></div>', unsafe_allow_html=True)
-    if filtered.empty:
-        empty_state(); return
-    hourly = hourly_frame(filtered)
-    anomalies = detect_anomalies(filtered)
-    flagged = anomalies[anomalies.anomaly_label == -1]
-    peak_hour = hourly.loc[hourly.energy_kwh.idxmax()]
-    metrics = [
-        ("Total energy", f"{filtered.energy_kwh.sum():,.0f} kWh", "active selection"),
-        ("Peak demand", f"{peak_hour.energy_kwh:,.0f} kWh", f"{peak_hour.timestamp:%d %b, %H:%M}"),
-        ("Anomalies", f"{len(flagged):,}", "events detected"),
-        ("Excess cost", f"INR {flagged.excess_cost_inr.sum():,.0f}", "estimated anomaly impact"),
-        ("Buildings", str(filtered.building.nunique()), "in active selection"),
-    ]
-    for col, (label, value, detail) in zip(st.columns(5), metrics):
-        with col: metric(label, value, detail)
-    st.markdown('<div class="panel">', unsafe_allow_html=True)
-    panel_heading("Energy trend", "Hourly portfolio demand across the selected period")
-    st.plotly_chart(make_fig(px.area(hourly, x="timestamp", y="energy_kwh", color_discrete_sequence=["#55d6c2"]), 370), use_container_width=True)
-    st.markdown('</div>', unsafe_allow_html=True)
-    left, right = st.columns([1.25, 1])
-    ranking = filtered.groupby("building", as_index=False).agg(energy_kwh=("energy_kwh", "sum"), intensity=("energy_kwh", "mean")).sort_values("energy_kwh")
-    ranking["rank"] = range(1, len(ranking) + 1)
-    with left:
-        st.markdown('<div class="panel">', unsafe_allow_html=True)
-        panel_heading("Building performance", "Lower average energy per record indicates stronger intensity")
-        st.dataframe(ranking[["rank", "building", "energy_kwh", "intensity"]].rename(columns={"energy_kwh":"Energy (kWh)", "intensity":"Avg / record"}), hide_index=True, use_container_width=True, height=250)
-        st.markdown('</div>', unsafe_allow_html=True)
-    with right:
-        record_peak = filtered.loc[filtered.energy_kwh.idxmax()]
-        st.markdown('<div class="panel">', unsafe_allow_html=True)
-        panel_heading("Peak load", "Highest record in the active selection")
-        st.markdown(f'<div class="alert-card medium"><span class="badge medium">PEAK LOAD</span><br><b>{record_peak.energy_kwh:,.1f} kWh</b><br><span class="subtle">{record_peak.timestamp:%d %b %Y, %H:%M} · {record_peak.building} / {record_peak.floor} / {record_peak.appliance}</span></div>', unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-    st.markdown("### Recent activity")
-    recent = filtered.sort_values("timestamp", ascending=False).head(5)
-    st.dataframe(recent[["timestamp", "building", "appliance", "power_kw", "occupancy"]].rename(columns={"power_kw":"Power kW"}), hide_index=True, use_container_width=True)
-
-
-def forecast_page(filtered, model):
-    st.markdown('<div class="eyebrow">Predictive intelligence</div><div class="hero"><h1>AI Energy Forecast</h1><div class="subtle">Expected energy demand, based on the existing Random Forest model.</div></div>', unsafe_allow_html=True)
-    hourly = hourly_frame(filtered)
-    if hourly.empty or model is None:
-        empty_state("Forecast requires the saved model and at least one data record."); return
-    r2, mae, prepared = model_metrics(hourly, model)
-    summary = [("Model", "Random Forest", "trained artifact"), ("R²", f"{r2:.3f}" if r2 is not None else "—", "chronological holdout"), ("MAE", f"{mae:.2f} kWh" if mae is not None else "—", "chronological holdout"), ("Forecast horizon", "24 hours", "rolling estimate")]
-    for col, (label, value, detail) in zip(st.columns(4), summary):
-        with col: metric(label, value, detail)
-    features = ["temperature_c", "humidity_percent", "occupancy", "hour", "day_of_week", "month", "previous_energy", "energy_24h_ago"]
-    if len(prepared) > 36:
-        test = prepared.tail(48).copy(); test["predicted"] = model.predict(test[features])
-        chart = go.Figure(); chart.add_trace(go.Scatter(x=test.timestamp, y=test.energy_kwh, name="Actual", line={"color":"#55d6c2"})); chart.add_trace(go.Scatter(x=test.timestamp, y=test.predicted, name="Predicted", line={"color":"#f4b860", "dash":"dot"}))
-        st.markdown('<div class="panel">', unsafe_allow_html=True); panel_heading("Actual vs predicted", "Latest 48 valid hourly records")
-        st.plotly_chart(make_fig(chart, 380), use_container_width=True); st.markdown('</div>', unsafe_allow_html=True)
-    latest = prepared.iloc[-1].copy(); rows = []
-    for step in range(1, 25):
-        stamp = latest.timestamp + pd.Timedelta(hours=step); row = latest.copy(); row["timestamp"] = stamp; row["hour"] = stamp.hour; row["day_of_week"] = stamp.dayofweek; row["month"] = stamp.month; row["previous_energy"] = latest.energy_kwh; row["energy_24h_ago"] = prepared.iloc[max(0, len(prepared)-24)]["energy_kwh"]; row["energy_kwh"] = model.predict(pd.DataFrame([row])[features])[0]; latest = row; rows.append(row)
-    future = pd.DataFrame(rows).reset_index(drop=True); peak = future.iloc[future.energy_kwh.to_numpy().argmax()]
-    for col, (label, value, detail) in zip(st.columns(2), [("Peak demand", f"{peak.energy_kwh:,.1f} kWh", f"{peak.timestamp:%H:%M} expected peak"), ("24-hour energy", f"{future.energy_kwh.sum():,.1f} kWh", "model projection")]):
-        with col: metric(label, value, detail)
-    st.markdown('<div class="panel">', unsafe_allow_html=True); panel_heading("Next 24-hour forecast", "Iterative forecast seeded from the latest portfolio state")
-    st.plotly_chart(make_fig(px.line(future, x="timestamp", y="energy_kwh", color_discrete_sequence=["#55d6c2"]), 310), use_container_width=True); st.markdown('</div>', unsafe_allow_html=True)
-
-
-def anomaly_page(filtered):
-    st.markdown('<div class="eyebrow">Detection</div><div class="hero"><h1>Anomaly Intelligence</h1><div class="subtle">Find where abnormal energy consumption needs attention.</div></div>', unsafe_allow_html=True)
-    result = detect_anomalies(filtered)
-    if result.empty:
-        empty_state(); return
-    anomalies = result[result.anomaly_label == -1].sort_values("anomaly_score", ascending=False)
-    values = [("Records analyzed", f"{len(result):,}", "active selection"), ("Anomalies detected", f"{len(anomalies):,}", "Isolation Forest output"), ("Excess energy", f"{anomalies.excess_energy_kwh.sum():,.0f} kWh", "estimated above baseline"), ("Excess cost", f"INR {anomalies.excess_cost_inr.sum():,.0f}", "estimated impact")]
-    for col, (label, value, detail) in zip(st.columns(4), values):
-        with col: metric(label, value, detail)
-    trend = result.assign(anomaly=(result.anomaly_label == -1).astype(int)).groupby(result.timestamp.dt.date).anomaly.sum().reset_index(name="alerts")
-    st.markdown('<div class="panel">', unsafe_allow_html=True); panel_heading("Anomaly trend", "Daily alert volume")
-    st.plotly_chart(make_fig(px.bar(trend, x="timestamp", y="alerts", color_discrete_sequence=["#ff7068"]), 310), use_container_width=True); st.markdown('</div>', unsafe_allow_html=True)
-    st.markdown('<div class="panel">', unsafe_allow_html=True); panel_heading("Alert queue", "Highest-severity events first")
-    for _, row in anomalies.head(6).iterrows():
-        badge_class = "medium" if row.severity == "Medium" else ""
-        st.markdown(f'<div class="alert-card"><span class="badge {badge_class}">{row.severity.upper()}</span> <b>{row.appliance}</b> · {row.building} / {row.floor}<br><span class="subtle">{row.timestamp:%d %b %H:%M} · score {row.anomaly_score:.3f} · +{row.excess_energy_kwh:.2f} kWh excess</span></div>', unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
-    st.markdown("### Anomaly details")
-    st.dataframe(anomalies[["timestamp", "building", "floor", "appliance", "severity", "anomaly_score", "excess_energy_kwh", "excess_cost_inr"]].head(25).round(3), hide_index=True, use_container_width=True)
-
-
-def sustainability_page(filtered):
-    st.markdown('<div class="eyebrow">Environmental impact</div><div class="hero"><h1>Sustainability</h1><div class="subtle">Track emissions and quantify the modeled benefit of operational improvements.</div></div>', unsafe_allow_html=True)
-    if filtered.empty:
-        empty_state(); return
-    energy, co2, cost = filtered.energy_kwh.sum(), filtered.co2_kg.sum(), filtered.electricity_cost_inr.sum()
-    reduction = energy * .1 * .82; score = max(0, min(100, 100 - filtered.co2_kg.mean() / filtered.co2_kg.max() * 100))
-    values = [("CO₂ emissions", f"{co2:,.0f} kg", "selected period"), ("Modeled reduction", f"{reduction:,.0f} kg", "10% optimization scenario"), ("Energy reduction potential", f"{energy * .1:,.0f} kWh", "estimated savings"), ("Cost impact", f"INR {energy * .1 * 8:,.0f}", "estimated impact")]
-    for col, (label, value, detail) in zip(st.columns(4), values):
-        with col: metric(label, value, detail)
-    st.markdown("### Current vs optimized state")
-    st.markdown(f'<div class="scenario"><div class="scenario-step"><div class="metric-label">CURRENT STATE</div><strong>{energy:,.0f} kWh</strong><span class="subtle">{co2:,.0f} kg CO₂ · INR {cost:,.0f}</span></div><div class="scenario-arrow">→</div><div class="scenario-step"><div class="metric-label">OPTIMIZED STATE</div><strong>{energy * .9:,.0f} kWh</strong><span class="subtle">{co2 - reduction:,.0f} kg CO₂ · INR {cost * .9:,.0f}</span></div></div>', unsafe_allow_html=True)
-    st.caption("Modeled scenario, not a measured intervention outcome. It applies a 10% reduction assumption to the active records using the existing emissions and tariff factors.")
-    score_col, _ = st.columns([1, 3])
-    with score_col: metric("Sustainability score", f"{score:,.0f} / 100", "normalized emissions intensity")
-    monthly = filtered.assign(month=filtered.timestamp.dt.to_period("M").astype(str)).groupby("month", as_index=False).co2_kg.sum()
-    st.markdown('<div class="panel">', unsafe_allow_html=True); panel_heading("Monthly emissions", "Portfolio CO₂ trend")
-    st.plotly_chart(make_fig(px.area(monthly, x="month", y="co2_kg", color_discrete_sequence=["#55d6c2"]), 330), use_container_width=True); st.markdown('</div>', unsafe_allow_html=True)
-
-
 def main():
     inject_styles(); data = load_data()
     if data.empty: st.error("The energy database is missing or contains no records."); return
-    # Query navigation is processed before sidebar widgets are created.
     if st.query_params.get("page") == "command-center":
         st.session_state["active_page"] = "Command Center"
         del st.query_params["page"]

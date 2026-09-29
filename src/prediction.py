@@ -115,5 +115,99 @@ def train_model():
     print(f"R² Score: {r2:.4f}")
 
 
+FEATURE_NAMES = [
+    "temperature_c",
+    "humidity_percent",
+    "occupancy",
+    "hour",
+    "day_of_week",
+    "month",
+    "previous_energy",
+    "energy_24h_ago",
+]
+
+
+def get_feature_importances(model):
+    """Extract and rank model feature importances."""
+    if model is None or not hasattr(model, "feature_importances_"):
+        return pd.DataFrame()
+
+    df_imp = pd.DataFrame({
+        "Feature": [
+            "Outdoor Temperature (°C)",
+            "Humidity (%)",
+            "Occupancy (people)",
+            "Hour of Day",
+            "Day of Week",
+            "Month",
+            "Previous Hour Energy",
+            "Energy 24h Ago"
+        ],
+        "Importance": model.feature_importances_
+    }).sort_values("Importance", ascending=True)
+
+    return df_imp
+
+
+def simulate_what_if_scenario(model, hourly_df, temp_delta_c=0.0, occupancy_pct_reduction=0.0):
+    """Simulate next 24-hour demand with adjusted HVAC temperature setpoint or occupancy setback."""
+    if model is None or hourly_df.empty or len(hourly_df) < 24:
+        return pd.DataFrame()
+
+    features = FEATURE_NAMES
+    latest = hourly_df.iloc[-1].copy()
+
+    # Baseline 24-hour prediction
+    baseline_rows = []
+    curr_base = latest.copy()
+    for step in range(1, 25):
+        stamp = curr_base["timestamp"] + pd.Timedelta(hours=step)
+        row = curr_base.copy()
+        row["timestamp"] = stamp
+        row["hour"] = stamp.hour
+        row["day_of_week"] = stamp.dayofweek
+        row["month"] = stamp.month
+        row["previous_energy"] = curr_base["energy_kwh"]
+        row["energy_24h_ago"] = hourly_df.iloc[max(0, len(hourly_df) - 24 + step - 1)]["energy_kwh"]
+
+        pred = model.predict(pd.DataFrame([row])[features])[0]
+        row["energy_kwh"] = pred
+        curr_base = row
+        baseline_rows.append(row)
+
+    df_baseline = pd.DataFrame(baseline_rows)
+
+    # Modified scenario prediction
+    scenario_rows = []
+    curr_scen = latest.copy()
+    for step in range(1, 25):
+        stamp = curr_scen["timestamp"] + pd.Timedelta(hours=step)
+        row = curr_scen.copy()
+        row["timestamp"] = stamp
+        row["hour"] = stamp.hour
+        row["day_of_week"] = stamp.dayofweek
+        row["month"] = stamp.month
+        row["temperature_c"] = max(10, row["temperature_c"] - temp_delta_c)
+        row["occupancy"] = max(0, row["occupancy"] * (1.0 - occupancy_pct_reduction / 100.0))
+        row["previous_energy"] = curr_scen["energy_kwh"]
+        row["energy_24h_ago"] = hourly_df.iloc[max(0, len(hourly_df) - 24 + step - 1)]["energy_kwh"]
+
+        pred = model.predict(pd.DataFrame([row])[features])[0]
+        row["energy_kwh"] = pred
+        curr_scen = row
+        scenario_rows.append(row)
+
+    df_scenario = pd.DataFrame(scenario_rows)
+
+    combined = pd.DataFrame({
+        "timestamp": df_baseline["timestamp"],
+        "Baseline Forecast (kWh)": df_baseline["energy_kwh"],
+        "Optimized Forecast (kWh)": df_scenario["energy_kwh"],
+        "Savings (kWh)": df_baseline["energy_kwh"] - df_scenario["energy_kwh"]
+    })
+
+    return combined
+
+
 if __name__ == "__main__":
-    train_model()
+    train_model()

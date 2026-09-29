@@ -31,8 +31,12 @@ def load_data():
     return df
 
 
-def detect_anomalies():
-    df = load_data()
+def detect_anomalies(df=None, contamination=0.02):
+    if df is None:
+        df = load_data()
+
+    if df.empty:
+        return df.copy()
 
     features = [
         "temperature_c",
@@ -43,43 +47,46 @@ def detect_anomalies():
     ]
 
     model = IsolationForest(
-        contamination=0.02,
+        contamination=contamination,
         random_state=42,
         n_estimators=100,
     )
 
-    df["anomaly_score"] = model.fit_predict(df[features])
+    result = df.copy()
+    result["anomaly_label"] = model.fit_predict(result[features])
+    result["anomaly_score"] = -model.decision_function(result[features])
 
-    df["anomaly"] = df["anomaly_score"].map({
+    result["anomaly"] = result["anomaly_label"].map({
         1: "Normal",
         -1: "Anomaly"
     })
 
     anomalies = (
-        df[df["anomaly"] == "Anomaly"]
+        result[result["anomaly"] == "Anomaly"]
         .sort_values("energy_kwh", ascending=False)
     )
 
     print("Anomaly detection completed successfully!")
-    print(f"Total records: {len(df):,}")
+    print(f"Total records: {len(result):,}")
     print(f"Anomalies detected: {len(anomalies):,}")
 
-    print("\nTop abnormal energy consumption records:")
-    print(
-        anomalies[
-            [
-                "timestamp",
-                "building",
-                "floor",
-                "appliance",
-                "power_kw",
-                "energy_kwh",
-                "anomaly",
-            ]
-        ].head(10).to_string(index=False)
-    )
+    if not anomalies.empty:
+        print("\nTop abnormal energy consumption records:")
+        print(
+            anomalies[
+                [
+                    "timestamp",
+                    "building",
+                    "floor",
+                    "appliance",
+                    "power_kw",
+                    "energy_kwh",
+                    "anomaly",
+                ]
+            ].head(10).to_string(index=False)
+        )
 
-    return df
+    return result
 
 
 if __name__ == "__main__":
